@@ -1,0 +1,12 @@
+# WolvenKit
+*.cpmodproj
+layout.xml
+.projectFiles/
+packed/
+custom_refs.txt
+custom_tweaks.txt
+
+# Editor
+.vscode/
+.history/
+*.log
