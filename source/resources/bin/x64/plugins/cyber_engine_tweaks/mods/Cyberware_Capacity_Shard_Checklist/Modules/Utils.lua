@@ -8,7 +8,7 @@
 local Utils = {}
 
 -- Standard Logging Prefix
-Utils.LogPrefix = IconGlyphs.ChipVertical .. " [CW Capacity Shard Checklist] "
+Utils.LogPrefix = IconGlyphs.Chip .. " [CW Capacity Shard Checklist] "
 
 -- Log Levels
 Utils.LogLevel = {

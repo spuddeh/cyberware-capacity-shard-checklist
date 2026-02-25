@@ -199,6 +199,9 @@ registerForEvent("onInit", function()
         -- Initialize Automation (Inject Dependencies)
         Automation.Init(sessionState, uiCallbacks, settings.dev_mode_enabled, settings)
 
+        -- Initial Kill Fact + Shard Scan (retroactive detection)
+        Automation.CheckKillFacts()
+
         -- Initial Scan & Start Loop
         Automation.UpdateState()
     end)

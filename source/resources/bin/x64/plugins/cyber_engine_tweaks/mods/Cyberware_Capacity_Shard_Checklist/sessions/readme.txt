@@ -1,0 +1,1 @@
+Cyberware Capacity Shard Checklist user data is stored in this folder

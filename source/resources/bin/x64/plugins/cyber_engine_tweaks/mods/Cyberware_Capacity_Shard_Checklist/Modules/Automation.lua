@@ -104,6 +104,19 @@ end
 
 -- HELPER: Robust Inventory Check for CW Capacity Shards
 -- Returns: true (Found), false (LoadedButMissing), or nil (NotLoaded/Error)
+-- Note: Actual TweakDB IDs from the game database.
+--       _2_ variants are likely Phantom Liberty specific
+local _cwShardIDs = {
+    "Items.CWCapacityPermaReward_Epic",
+    "Items.CWCapacityPermaReward_Legendary",
+    "Items.CWCapacityPermaReward_Rare",
+    "Items.CWCapacityPermaReward_Uncommon",
+    "Items.CWCapacityPermaReward_2_Epic",
+    "Items.CWCapacityPermaReward_2_Legendary",
+    "Items.CWCapacityPermaReward_2_Rare",
+    "Items.CWCapacityPermaReward_2_Uncommon",
+}
+
 local function HasAnyCWCapacityShard(entity, trans)
     if not entity or not trans then return nil end
 
@@ -120,37 +133,124 @@ local function HasAnyCWCapacityShard(entity, trans)
         return nil
     end
 
-    -- 2. Check for Known CW Capacity Shard IDs (All tiers)
-    if trans:HasItem(entity, ItemID.new(TweakDBID.new("Items.CWCapacityPermaReward_Uncommon"))) then return true end
-    if trans:HasItem(entity, ItemID.new(TweakDBID.new("Items.CWCapacityPermaReward_Rare"))) then return true end
-    if trans:HasItem(entity, ItemID.new(TweakDBID.new("Items.CWCapacityPermaReward_Epic"))) then return true end
-    if trans:HasItem(entity, ItemID.new(TweakDBID.new("Items.CWCapacityPermaReward_Legendary"))) then return true end
+    -- 2. Check all known CW Capacity Shard TweakDB IDs
+    for _, id in ipairs(_cwShardIDs) do
+        if trans:HasItem(entity, ItemID.new(TweakDBID.new(id))) then
+            return true
+        end
+    end
 
     return false -- Loaded, but no shard found
 end
 
 -- ### CHECKS ###
 
--- Check Quest Facts (Gig completion)
-local function CheckQuestFacts()
+-- Check Kill Facts + Conversation Shards (unified Cyberjunkie detection)
+-- For entries with kill_fact: checks if defeated (kill_fact > 0)
+--   - If the entry also has conversation_shard: verify shard is in journal (confirms looting)
+--   - If no conversation_shard: kill_fact alone is sufficient (non-shard Cyberjunkies)
+-- Also checks quest_fact for legacy/container entries.
+function Automation.CheckKillFacts()
     local qs = Game.GetQuestsSystem()
     if not qs then return end
 
     local count = 0
+    local needsShardCheck = {} -- Entries that are killed but need shard confirmation
+
     for _, cat in ipairs(CyberwareCapacityDB) do
         for _, entry in ipairs(cat.entries) do
-            -- Only check if uncollected and has a fact
-            if not IsCollected(entry.id) and entry.quest_fact then
+            if IsCollected(entry.id) then goto continue end
+
+            -- 1. Legacy quest_fact check (for non-Cyberjunkie entries)
+            if entry.quest_fact then
                 local factVal = qs:GetFactStr(entry.quest_fact)
                 if factVal > 0 then
-                    Utils.Log("Found completed Quest Fact for " .. entry.id)
+                    Utils.Log("[KillFacts] Quest fact completed: " .. entry.id)
                     Automation.SetItemStatus(entry.id, true)
                     count = count + 1
+                    goto continue
+                end
+            end
+
+            -- 2. Kill fact check (Cyberjunkies)
+            if entry.kill_fact then
+                local killVal = qs:GetFactStr(entry.kill_fact)
+                if killVal > 0 then
+                    -- NPC is defeated
+                    if entry.conversation_shard then
+                        -- CW Shard Cyberjunkie: need shard confirmation before marking collected
+                        table.insert(needsShardCheck, entry)
+                    else
+                        -- Non-shard Cyberjunkie: defeat = completion
+                        Utils.Log("[KillFacts] Cyberjunkie defeated: " .. entry.id)
+                        Automation.SetItemStatus(entry.id, true)
+                        count = count + 1
+                    end
+                end
+            end
+
+            ::continue::
+        end
+    end
+
+    -- 3. Shard confirmation pass (only for killed CW Shard Cyberjunkies)
+    if #needsShardCheck > 0 then
+        local shardCount = Automation._CheckShardsForEntries(needsShardCheck)
+        count = count + shardCount
+    end
+
+    if count > 0 then
+        Utils.Log("Retroactively marked " .. count .. " entries via kill facts / shards.")
+    elseif _isDebug then
+        Utils.Log("[KillFacts] Scan complete. No new matches.", Utils.LogLevel.Debug)
+    end
+end
+
+-- HELPER: Check conversation shards in journal for a list of entries
+-- Returns number of entries matched
+function Automation._CheckShardsForEntries(entries)
+    if #entries == 0 then return 0 end
+
+    local jm = Game.GetJournalManager()
+    if not jm then
+        if _isDebug then Utils.Log("[ShardScan] JournalManager not available.", Utils.LogLevel.Debug) end
+        return 0
+    end
+
+    -- Get all shards from the player's codex
+    local success, shardData = pcall(function()
+        return CodexUtils.GetShardsDataArray(jm, CodexListSyncData.new())
+    end)
+
+    if not success or not shardData then
+        if _isDebug then
+            Utils.Log("[ShardScan] CodexUtils.GetShardsDataArray() failed or unavailable.",
+                Utils.LogLevel.Debug)
+        end
+        return 0
+    end
+
+    local count = 0
+    for _, shard in ipairs(shardData) do
+        if shard.data and not shard.isHeader then
+            local titleKey = shard.data.title
+            if titleKey then
+                local localizedTitle = GetLocalizedText(titleKey)
+
+                if localizedTitle and string.find(localizedTitle, "Archived Conversation") then
+                    for _, entry in ipairs(entries) do
+                        if not IsCollected(entry.id) and string.find(localizedTitle, entry.conversation_shard, 1, true) then
+                            Utils.Log("[ShardScan] Kill confirmed + shard matched: " .. entry.id)
+                            Automation.SetItemStatus(entry.id, true)
+                            count = count + 1
+                        end
+                    end
                 end
             end
         end
     end
-    if count > 0 then Utils.Log("Retroactively unlocked " .. count .. " items via Quest Facts.") end
+
+    return count
 end
 
 -- ### OBSERVERS & PROXIMITY SCANNER ###
@@ -270,9 +370,22 @@ function Automation.ProximityScan()
     local detectionDistSq = 25.0 * 25.0
 
     -- Iterate through DB to find uncollected items with coords
+    local qs = Game.GetQuestsSystem()
     for _, cat in ipairs(CyberwareCapacityDB) do
         for _, entry in ipairs(cat.entries) do
             if not IsCollected(entry.id) and entry.coords then
+                -- SPAWN GATE: Skip entries whose spawn_fact hasn't triggered yet
+                if entry.spawn_fact and qs then
+                    local factVal = qs:GetFactStr(entry.spawn_fact)
+                    if factVal == 0 then
+                        -- Cyberjunkie hasn't spawned yet. Skip entirely.
+                        if _createdMappins[entry.id] then
+                            Automation.RemoveMappin(entry.id)
+                        end
+                        goto continue
+                    end
+                end
+
                 -- Check Distance
                 local dx = playerPos.x - entry.coords.x
                 local dy = playerPos.y - entry.coords.y
@@ -308,6 +421,7 @@ function Automation.ProximityScan()
                     Automation.RemoveMappin(entry.id)
                 end
             end
+            ::continue::
         end
     end
 end
@@ -315,7 +429,12 @@ end
 function Automation.CreateMappin(entry, entity)
     local mappinData = MappinData.new()
     mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
-    mappinData.variant = gamedataMappinVariant.ServicePointNetTrainerVariant
+    -- Use TakeDownVariant for Cyberjunkies, ServicePointNetTrainerVariant for caches
+    if string.find(entry.id, "cyberjunkie_", 1, true) then
+        mappinData.variant = gamedataMappinVariant.TakeDownVariant
+    else
+        mappinData.variant = gamedataMappinVariant.ServicePointNetTrainerVariant
+    end
     mappinData.visibleThroughWalls = true
 
     local pos = Vector4.new(entry.coords.x, entry.coords.y, entry.coords.z + 1.0, 1.0) -- Lift slightly default
@@ -345,13 +464,20 @@ end
 function Automation.CheckProximityTarget(entry, entity, isVeryClose)
     -- NOTIFICATION (First time only)
     if not _notified_cache[entry.id] then
-        Utils.Notify("CW Capacity Shard detected: " .. entry.name)
+        local label = entry.kill_fact and "Cyberjunkie" or "Shard"
+        -- Strip "Cyberjunkie - " prefix to avoid "Cyberjunkie detected: Cyberjunkie - Name"
+        local displayName = string.gsub(entry.name, "^Cyberjunkie %- ", "")
+        Utils.Notify(label .. " detected: " .. displayName)
         _notified_cache[entry.id] = true
     end
 
-    -- AUTO-RESOLVE LOGIC (NPC body / container proximity check)
+    -- Cyberjunkies: Skip inventory auto-resolve. Kill facts handle their detection.
+    if entry.kill_fact then
+        return
+    end
+
+    -- AUTO-RESOLVE LOGIC (Container/cache proximity check only — e.g., Stadium Cache)
     if entity and isVeryClose then
-        -- Entity found AND we are close (avoid long-range empty checks)
         local trans = Game.GetTransactionSystem()
         if trans then
             local result = HasAnyCWCapacityShard(entity, trans)
@@ -366,7 +492,6 @@ function Automation.CheckProximityTarget(entry, entity, isVeryClose)
                 end
                 Automation.RemoveMappin(entry.id)
             elseif result == true then
-                -- Found it! Ensure notify cache is populated so we don't annoy user
                 if not _notified_cache[entry.id] then
                     Utils.Notify("CW Capacity Shard detected: " .. entry.name)
                     if _isDebug then Utils.Log("[Proximity] Shard Detected: " .. entry.name, Utils.LogLevel.Debug) end
@@ -429,7 +554,7 @@ end
 
 -- Public Scan Function (Called by Init and UI Open)
 function Automation.Scan()
-    CheckQuestFacts()
+    Automation.CheckKillFacts()
     Automation.ProximityScan()
 end
 

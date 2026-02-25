@@ -1,0 +1,115 @@
+[center][size=6][color=#ffff00][b]Cyberware Capacity Shard Checklist[/b][/color][/size]
+[size=4]An in-game UI checklist to track all Cyberware Capacity Shards and Cyberjunkies in Dogtown.[/size][/center]
+
+Phantom Liberty introduces [b]6 Cyberware Capacity Shards[/b] hidden across Dogtown, each permanently increasing your Cyberware Capacity. These are dropped by Cyberjunkie NPCs (and one hidden cache) scattered throughout the district. There are also [b]6 additional Cyberjunkies[/b] who don't drop a shard but are part of the same quest line.
+
+This mod adds a simple, in-game UI to track all shards and Cyberjunkies so you never have to alt-tab again.
+
+[line]
+
+[size=5][color=#ffff00][b]Why Only Phantom Liberty?[/b][/color][/size]
+In total, there are [b]74 Cyberware Capacity[/b] worth of shards across the entire game:
+
+[list]
+[*][b]Base Game (60 Capacity):[/b] Shards are [b]randomly dropped[/b] by enemies throughout Night City based on your level. Since these are random loot drops with no fixed locations, they can't be meaningfully tracked on a checklist. The [i]Psycho Killer[/i] reward is the only exception, but it's automatically granted.
+[*][b]Phantom Liberty (14 Capacity):[/b] Shards are dropped by [b]specific Cyberjunkie NPCs[/b] at fixed locations in Dogtown, plus one cache during the "Dog Eat Dog" mission. These are the ones this mod tracks.
+[/list]
+
+[line]
+
+[size=5][color=#ffff00][b]Features[/b][/color][/size]
+[list]
+[*][b]Automatic Tracking[/b]: Detects defeated Cyberjunkies using in-game quest facts. Shard Cyberjunkies also verify the shard has been looted before checking off.
+[*][b]In-Game Checklist[/b]: Track your progress on all 12 entries across 2 categories (Cyberware Capacity Shards + Cyberjunkies).
+[*]Progress is saved automatically with your game save (per-character).
+[*]A [b]Settings[/b] tab to configure the Proximity Scanner (Radius, Interval) and optional [b]Lazy Mode[/b].
+[*]In-game descriptions, closest fast travel points, and step-by-step directions for every entry.
+[*][b]Spawn Requirements[/b]: Displays prerequisite conditions for gated Cyberjunkies (e.g., "Defeat any 4 Cyberjunkies").
+[*]A [b]Set Map Pin[/b] button to create a waypoint to the entry's location.
+[*]A [b]Teleport[/b] button (in Lazy Mode) to instantly teleport to the location.
+[*]An [b]Unstuck[/b] button (in Lazy Mode) to teleport you to V's H10 apartment if you get stuck.
+[*]A counter to see your total collected entries.
+[/list]
+
+[line]
+
+[size=5][color=#ffff00][b]What's Tracked[/b][/color][/size]
+
+[size=4][color=#ffff00][b]Category 1: Cyberware Capacity Shards (6 entries)[/b][/color][/size]
+These entries reward a [b]Cyberware Capacity Shard[/b] (+5 Capacity) when looted.
+[list]
+[*]Stadium Parking Garage (Cache) — [i]During "Dog Eat Dog" mission[/i]
+[*]Wesley Hunt — Terra Cognita
+[*]Jacob Bernard — Longshore Stacks — [i]Requires: Defeat any 4 Cyberjunkies[/i]
+[*]Garry Bates — Golden Pacific
+[*]Jacqueline Peele — Golden Pacific
+[*]Andrew Newman — Luxor Heights — [i]Requires: Balls to the Wall or Firestarter quest completed[/i]
+[/list]
+
+[size=4][color=#ffff00][b]Category 2: Cyberjunkies (6 entries)[/b][/color][/size]
+These Cyberjunkies do [b]not[/b] drop a shard, but are tracked for completion.
+[list]
+[*]Maggie Isley — Terra Cognita
+[*]Cody Crosby — Luxor Heights
+[*]David Dover — Golden Pacific
+[*]Chester Hamilton — Golden Pacific — [i]Requires: Defeat David Dover + wait 6 in-game hours[/i]
+[*]Sean McMillan — Luxor Heights — [i]Requires: Defeat any 4 Cyberjunkies[/i]
+[*]Greg Wilson — Luxor Heights — [i]Requires: Gig: Roads to Redemption completed[/i]
+[/list]
+
+[line]
+
+[size=5][color=#ffff00][b]How to Use[/b][/color][/size]
+[list=1]
+[*]Open the Cyber Engine Tweaks overlay.
+[*]The "Cyberware Capacity Shard Checklist" window will appear.
+[*]Click the checkboxes to mark your progress manually, or let the [b]Automatic Tracking[/b] handle it for you.
+[*][b]Proximity Scanning[/b]: Enable (default) this in the [b]Settings[/b] tab to see nearby Cyberjunkies on your HUD as you play.
+[list][*]You can also adjust how frequently the scan occurs (default 5.0s), as well as the range (default 50m).
+[/list][*]To save your progress, [b]Quicksave (F5)[/b] or [b]Manual Save[/b] your game. The progress is tied to that save file.
+[/list]
+
+[line]
+
+[size=5][color=#ffff00][b]Lazy Mode[/b][/color][/size]
+For those who just want to get it done, you can enable "Lazy Mode" in the Settings tab. This will show the "Teleport" and "Unstuck" buttons.
+
+[color=#e06666][b]WARNING:[/b][/color] Using teleport functions can be risky. It may cause issues with your save or get you stuck. Use at your own risk and always have a recent manual save!
+
+[line]
+
+[size=5][color=#ffff00][b]Installation[/b][/color][/size]
+[list=1]
+[*]Install with a mod manager (recommended).
+[*]Install [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url].
+[*]For manual install, download and extract the main file into your Cyberpunk 2077 game directory.
+[/list]
+
+[line]
+
+[size=5][color=#ffff00][b]Known Issues[/b][/color][/size]
+[list]
+[*]When you use the "Set Map Pin" button, the breadcrumbs (navigation path) may not appear immediately. You will need to [b]open and close your in-game Map (M)[/b] for the path to appear.
+[*]The [b]Stadium Parking Cache[/b] is inside a van during the "Dog Eat Dog" mission and can't be accessed afterwards. If you miss it, you will need to use lazy mode to access it. You won't be able to open the van doors, but you can interact with the container by aiming at the door handle in just the right spot.
+[/list]
+
+[line]
+
+[size=5][color=#ffff00][b]Related Mods[/b][/color][/size]
+[list]
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/25594]Perk Shard Checklist[/url] — Track all 13 Perk Shards across Night City.
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/25755]Relic Terminal Checklist[/url] — Track all 9 Relic Terminals in Dogtown.
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/26829]Clothing Sets Checklist[/url] — Track all Clothing Set items.
+[/list]
+
+[line]
+
+[size=5][color=#ffff00][b]Inspiration & Credits[/b][/color][/size]
+This mod is based on my [url=https://www.nexusmods.com/cyberpunk2077/mods/25594]Perk Shard Checklist[/url] mod, which was originally inspired by [b]yakuzadeso[/b]'s [url=https://www.nexusmods.com/cyberpunk2077/mods/17452]Iconic Weapons Checklist[/url].
+
+This mod would not be possible without:
+[list]
+[*][b]yamashi[/b] and the CET team for creating [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url].
+[*][b]psiberx[/b] for their amazing [url=https://github.com/psiberx/cp2077-cet-kit]CET Kit[/url] and especially the 'GameSession.lua' module, which handles all the per-save-file saving.
+[*]The Cyberpunk 2077 Modding community for all the public documentation and guides.
+[/list]
