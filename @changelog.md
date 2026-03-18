@@ -41,3 +41,10 @@
   - [New] Loot detection via inventory observer (CWCapacityPermaReward filter).
   - [New] Predictive loot resolution for closest uncollected shard.
   - [New] Session persistence per save file.
+
+---
+
+## Historical Changelog (Pre-Restructure)
+
+### v1.0.0
+- Initial Upload
