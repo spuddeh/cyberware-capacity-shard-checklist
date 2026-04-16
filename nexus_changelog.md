@@ -1,14 +1,14 @@
-### v1.0.0
+# Cyberware Capacity Shard (and Cyberjunkies) Checklist — Nexus Changelogs
+
+### 1.0.0
 - Initial Upload
 
 ---
-
 ## Notes
 
 No issues flagged.
 
 ---
-
 ## Stickied Comment BBCode
 
 ```
