@@ -1,111 +1,84 @@
 -- ======================================================================================
 -- Mod Name: Cyberware Capacity Shard Checklist
 -- Author: Spuddeh
--- Description: Handles Proximity Scanning, Mappins, and Auto-Collection Logic.
--- Mod Version: 1.0.0
+-- Description: CCSC-specific automation logic. Delegates shared behaviour to ChecklistCore.
+-- Mod Version: 1.1.0
 -- ======================================================================================
 
-local Automation = {}
+local Automation        = {}
+local Core              = require("Modules/ChecklistCore")
 local CyberwareCapacityDB = require("db")
-local Utils = require("Modules/Utils")
-local Cron = require("Modules/Cron")
-local GameSession = require("Modules/GameSession")
-local Ref = require("Modules/Ref")
+local Utils             = require("Modules/Utils")
+
+-- ### FORWARDED CORE API ###
+
+Automation.SetInCombat              = Core.SetInCombat
+Automation.SetInCutscene            = Core.SetInCutscene
+Automation.SetMenuPaused            = Core.SetMenuPaused
+Automation.SetItemStatus            = Core.SetItemStatus
+Automation.HasNearbyEntries         = Core.HasNearbyEntries
+Automation.UpdateState              = Core.UpdateState
+Automation.RegisterItemSet          = Core.RegisterItemSet
+Automation.UnregisterItemSet        = Core.UnregisterItemSet
+Automation.RemoveMappin             = Core.RemoveMappin
+Automation.ResolveClosestUncollected = Core.ResolveClosestUncollected
+
+-- ### CCSC-SPECIFIC: COLLECTED STATE ###
 
 local _sessionState = nil
-local _callbacks = nil
-local _isDebug = false
-local _settings = nil
-local _cronTimerId = nil
-local _lastScanTime = 0
-local _wasPaused = true
-local _unpauseTime = 0
-
--- ### NOTIFICATION CACHE ###
-local _notified_cache = {}
-
-function Automation.ResetNotificationCache()
-    if _isDebug then Utils.Log("Resetting Notification Cache.", Utils.LogLevel.Debug) end
-    _notified_cache = {}
-end
-
-function Automation.OnTeleport()
-    -- Set unpause time to future (Current + 7s Cooldown)
-    -- This forces ProximityScan to wait, covering the loading screen + loot generation time.
-    _unpauseTime = os.clock() + 7.0
-    Utils.Log("Teleport detected. Pausing scanner for 7s safety cooldown.")
-end
-
-function Automation.SetTimerID(id)
-    _cronTimerId = id
-end
-
--- ### STATE HELPERS ###
+local _isDebug      = false
 
 local function IsCollected(id)
-    if _sessionState and _sessionState.progress then
-        return _sessionState.progress[id] == true
-    end
-    return false
+    return _sessionState and _sessionState.progress and _sessionState.progress[id] == true
 end
 
-local function StopScanner()
-    if _cronTimerId then
-        Cron.Halt(_cronTimerId)
-        _cronTimerId = nil
-        Utils.Log("All items collected. Stopping Passive Scanner.")
-    else
-        if _isDebug then Utils.Log("StopScanner called, but scanner was not running.", Utils.LogLevel.Debug) end
-    end
-end
+-- ### CCSC-SPECIFIC: BUILD ENTRIES ###
+-- Both CW Shard caches and Cyberjunkies go into the same SpatialSet.
+-- spawn_fact gating is handled in canShow so the entry stays in the SpatialSet
+-- and becomes visible once the Cyberjunkie spawns, without a full rebuild.
 
--- Check if all items in DB are collected (Returns: bool, collectedCount, totalCount)
-local function CheckAllCollected()
-    local total = 0
-    local collected = 0
-
+local function BuildEntries()
+    local entries = {}
     for _, cat in ipairs(CyberwareCapacityDB) do
         for _, entry in ipairs(cat.entries) do
-            total = total + 1
-            if IsCollected(entry.id) then
-                collected = collected + 1
+            if not IsCollected(entry.id) and entry.coords then
+                table.insert(entries, {
+                    x       = entry.coords.x,
+                    y       = entry.coords.y,
+                    z       = entry.coords.z,
+                    id      = entry.id,
+                    name    = entry.name,
+                    dbEntry = entry,
+                })
             end
         end
     end
-
-    if collected >= total and total > 0 then
-        return true, collected, total
-    end
-    return false, collected, total
+    return entries
 end
 
-function Automation.SetItemStatus(id, collected)
-    if not _sessionState or not _sessionState.progress then
-        if _isDebug then Utils.Log("[SetItemStatus] Error: _sessionState is nil/invalid!", Utils.LogLevel.Error) end
-        return
+-- ### CCSC-SPECIFIC: canShow ###
+-- Gates mappin + snap zone + notification for Cyberjunkies that haven't spawned yet.
+
+local function CanShow(entry)
+    if entry.spawn_fact then
+        local qs = Game.GetQuestsSystem()
+        return qs ~= nil and qs:GetFactStr(entry.spawn_fact) > 0
     end
-
-    if _sessionState and _sessionState.progress then
-        _sessionState.progress[id] = collected
-
-        local isComplete, count, total = CheckAllCollected()
-
-        if _isDebug then
-            Utils.Log(string.format("[SetItemStatus] Item: %s | Status: %s | Progress: %d/%d | Complete: %s",
-                id, tostring(collected), count, total, tostring(isComplete)), Utils.LogLevel.Debug)
-        end
-
-        -- Optimization: Stop scanner if we just finished the collection
-        if collected and isComplete then
-            StopScanner()
-        end
-    end
+    return true
 end
 
--- HELPER: Robust Inventory Check for CW Capacity Shards
--- Returns: true (Found), false (LoadedButMissing), or nil (NotLoaded/Error)
--- Note: Actual TweakDB IDs from the game database.
---       _2_ variants are likely Phantom Liberty specific
+-- ### CCSC-SPECIFIC: getMappinVariant ###
+-- Cyberjunkies use TakeDownVariant; CW Shard caches use the book icon.
+
+local function GetMappinVariant(entry)
+    if entry.kill_fact then
+        return gamedataMappinVariant.TakeDownVariant
+    end
+    return gamedataMappinVariant.ServicePointNetTrainerVariant
+end
+
+-- ### CCSC-SPECIFIC: INVENTORY CHECK ###
+
 local _cwShardIDs = {
     "Items.CWCapacityPermaReward_Epic",
     "Items.CWCapacityPermaReward_Legendary",
@@ -119,95 +92,32 @@ local _cwShardIDs = {
 
 local function HasAnyCWCapacityShard(entity, trans)
     if not entity or not trans then return nil end
-
-    -- 1. Check if inventory is ready
-    local success, itemList = trans:GetItemList(entity)
-    local isLoaded = false
-
-    if success == true then
-        isLoaded = true
-    end
-
-    if not isLoaded then
-        -- Inventory not streamed in yet. Abort check.
-        return nil
-    end
-
-    -- 2. Check all known CW Capacity Shard TweakDB IDs
+    local success, _ = trans:GetItemList(entity)
+    if success ~= true then return nil end
     for _, id in ipairs(_cwShardIDs) do
-        if trans:HasItem(entity, ItemID.new(TweakDBID.new(id))) then
-            return true
-        end
+        if trans:HasItem(entity, ItemID.new(TweakDBID.new(id))) then return true end
     end
-
-    return false -- Loaded, but no shard found
+    return false
 end
 
--- ### CHECKS ###
+-- ### CCSC-SPECIFIC: onItemEnter ###
+-- Notification only. Detection zone handles entity snap + inventory check for caches.
+-- Cyberjunkies: kill facts + conversation shards handle detection.
 
--- Check Kill Facts + Conversation Shards (unified Cyberjunkie detection)
--- For entries with kill_fact: checks if defeated (kill_fact > 0)
---   - If the entry also has conversation_shard: verify shard is in journal (confirms looting)
---   - If no conversation_shard: kill_fact alone is sufficient (non-shard Cyberjunkies)
--- Also checks quest_fact for legacy/container entries.
-function Automation.CheckKillFacts()
-    local qs = Game.GetQuestsSystem()
-    if not qs then return end
-
-    local count = 0
-    local needsShardCheck = {} -- Entries that are killed but need shard confirmation
-
-    for _, cat in ipairs(CyberwareCapacityDB) do
-        for _, entry in ipairs(cat.entries) do
-            if IsCollected(entry.id) then goto continue end
-
-            -- 1. Legacy quest_fact check (for non-Cyberjunkie entries)
-            if entry.quest_fact then
-                local factVal = qs:GetFactStr(entry.quest_fact)
-                if factVal > 0 then
-                    Utils.Log("[KillFacts] Quest fact completed: " .. entry.id)
-                    Automation.SetItemStatus(entry.id, true)
-                    count = count + 1
-                    goto continue
-                end
-            end
-
-            -- 2. Kill fact check (Cyberjunkies)
-            if entry.kill_fact then
-                local killVal = qs:GetFactStr(entry.kill_fact)
-                if killVal > 0 then
-                    -- NPC is defeated
-                    if entry.conversation_shard then
-                        -- CW Shard Cyberjunkie: need shard confirmation before marking collected
-                        table.insert(needsShardCheck, entry)
-                    else
-                        -- Non-shard Cyberjunkie: defeat = completion
-                        Utils.Log("[KillFacts] Cyberjunkie defeated: " .. entry.id)
-                        Automation.SetItemStatus(entry.id, true)
-                        count = count + 1
-                    end
-                end
-            end
-
-            ::continue::
-        end
-    end
-
-    -- 3. Shard confirmation pass (only for killed CW Shard Cyberjunkies)
-    if #needsShardCheck > 0 then
-        local shardCount = Automation._CheckShardsForEntries(needsShardCheck)
-        count = count + shardCount
-    end
-
-    if count > 0 then
-        Utils.Log("Retroactively marked " .. count .. " entries via kill facts / shards.")
-    elseif _isDebug then
-        Utils.Log("[KillFacts] Scan complete. No new matches.", Utils.LogLevel.Debug)
+local function OnItemEnter(spatialEntry, _)
+    local entry = spatialEntry.dbEntry
+    if not Core.IsNotified(entry.id) then
+        local label = entry.kill_fact and "Cyberjunkie" or "CW Capacity Shard"
+        local displayName = string.gsub(entry.name, "^Cyberjunkie %- ", "")
+        Utils.Notify(label .. " detected: " .. displayName)
+        Core.SetNotified(entry.id)
     end
 end
 
--- HELPER: Check conversation shards in journal for a list of entries
--- Returns number of entries matched
+-- ### CCSC-SPECIFIC: KILL FACT DETECTION ###
+
+-- HELPER: Confirm shard looted via journal conversation shards
+-- Returns number of entries confirmed
 function Automation._CheckShardsForEntries(entries)
     if #entries == 0 then return 0 end
 
@@ -217,15 +127,13 @@ function Automation._CheckShardsForEntries(entries)
         return 0
     end
 
-    -- Get all shards from the player's codex
     local success, shardData = pcall(function()
         return CodexUtils.GetShardsDataArray(jm, CodexListSyncData.new())
     end)
 
     if not success or not shardData then
         if _isDebug then
-            Utils.Log("[ShardScan] CodexUtils.GetShardsDataArray() failed or unavailable.",
-                Utils.LogLevel.Debug)
+            Utils.Log("[ShardScan] CodexUtils.GetShardsDataArray() failed.", Utils.LogLevel.Debug)
         end
         return 0
     end
@@ -236,12 +144,12 @@ function Automation._CheckShardsForEntries(entries)
             local titleKey = shard.data.title
             if titleKey then
                 local localizedTitle = GetLocalizedText(titleKey)
-
                 if localizedTitle and string.find(localizedTitle, "Archived Conversation") then
                     for _, entry in ipairs(entries) do
-                        if not IsCollected(entry.id) and string.find(localizedTitle, entry.conversation_shard, 1, true) then
+                        if not IsCollected(entry.id) and
+                            string.find(localizedTitle, entry.conversation_shard, 1, true) then
                             Utils.Log("[ShardScan] Kill confirmed + shard matched: " .. entry.id)
-                            Automation.SetItemStatus(entry.id, true)
+                            Core.SetItemStatus(entry.id, true)
                             count = count + 1
                         end
                     end
@@ -249,338 +157,87 @@ function Automation._CheckShardsForEntries(entries)
             end
         end
     end
-
     return count
 end
 
--- ### OBSERVERS & PROXIMITY SCANNER ###
-
--- Cache for notifications to avoid spam
-local _createdMappins = {}
-local _mappinSnapped = {}
-local _entityCache = {}
-
-function Automation.StartScanner()
-    if _cronTimerId then
-        if _isDebug then Utils.Log("StartScanner called, but scanner is already running.", Utils.LogLevel.Debug) end
-        return
-    end
-
-    if _isDebug then Utils.Log("Automation: Starting Proximity Scanner Loop.", Utils.LogLevel.Debug) end
-
-    -- Start Passive Proximity Scanner (Cron Loop 1.0s)
-    _unpauseTime = os.clock() -- Initialize Grace Period on Start
-    _cronTimerId = Cron.Every(1.0, function()
-        local currentTime = os.clock()
-        local interval = _settings and _settings.scanner_interval or 5.0
-
-        if (currentTime - _lastScanTime) >= interval then
-            Automation.ProximityScan()
-            _lastScanTime = currentTime
-        end
-    end)
-end
-
-function Automation.StopScanner()
-    if _cronTimerId then
-        Cron.Halt(_cronTimerId)
-        _cronTimerId = nil
-        Utils.Log("Automation: Stopped Proximity Scanner Loop.")
-        _createdMappins = {} -- Reset mappins on stop
-    end
-end
-
-function Automation.UpdateState()
-    if _settings and _settings.automation_enabled then
-        if CheckAllCollected() then
-            StopScanner()
-        else
-            Automation.StartScanner()
-        end
-    else
-        Automation.StopScanner()
-    end
-end
-
---- Periodic check for player proximity
--- Helper: Resolve Entity from Cache or DB ID
-local function ResolveEntity(entry)
-    -- 1. Try Weak Cache
-    if _entityCache[entry.id] and not Ref.IsExpired(_entityCache[entry.id]) then
-        return _entityCache[entry.id]
-    end
-
-    -- 2. Try FindEntityByID (if container_id exists — works for NPC bodies too)
-    if entry.container_id then
-        local success, hashVal = pcall(loadstring("return " .. tostring(entry.container_id)))
-        if success and hashVal then
-            local tid = entEntityID.new()
-            tid.hash = hashVal
-            local entity = Game.FindEntityByID(tid)
-            if entity then
-                _entityCache[entry.id] = Ref.Weak(entity)
-                return entity
-            end
-        end
-    end
-    return nil
-end
-
---- Periodic check for player proximity
-function Automation.ProximityScan()
-    local player = Game.GetPlayer()
-    if not player then return end
-
-    -- PAUSE CHECK: Suspend automation during Menus/Loading
-    local isPaused = GameSession.IsPaused()
-
-    if isPaused then
-        _wasPaused = true
-        return
-    end
-
-    -- Just unpaused?
-    if _wasPaused then
-        _unpauseTime = os.clock()
-        _wasPaused = false
-    end
-
-    -- Grace Period Check (3.0s for Fade-In, or longer if Teleport Cooldown is active)
-    local graceTime = 3.0
-    if _unpauseTime > os.clock() then
-        -- We are in a forced cooldown (Teleport)
-        if _isDebug and math.fmod(os.clock(), 2.0) < 0.1 then -- Log occasionally
-            Utils.Log("[Proximity] Waiting for Grace Period / Teleport Cooldown...", Utils.LogLevel.Debug)
-        end
-        return
-    elseif (os.clock() - _unpauseTime) < graceTime then
-        return
-    end
-
-    if _isDebug then
-        local status = _settings and
-            ("Enabled: " .. tostring(_settings.automation_enabled) .. ", Radius: " .. tostring(_settings.scanner_radius)) or
-            "No Settings"
-        Utils.Log("[Proximity] Scanning... " .. status, Utils.LogLevel.Debug)
-    end
-
-    local playerPos = player:GetWorldPosition()
-    local radius = _settings and _settings.scanner_radius or 50.0
-    local radiusSq = radius * radius
-    local detectionDistSq = 25.0 * 25.0
-
-    -- Iterate through DB to find uncollected items with coords
+function Automation.CheckKillFacts()
     local qs = Game.GetQuestsSystem()
+    if not qs then return end
+
+    local count = 0
+    local needsShardCheck = {}
+
     for _, cat in ipairs(CyberwareCapacityDB) do
         for _, entry in ipairs(cat.entries) do
-            if not IsCollected(entry.id) and entry.coords then
-                -- SPAWN GATE: Skip entries whose spawn_fact hasn't triggered yet
-                if entry.spawn_fact and qs then
-                    local factVal = qs:GetFactStr(entry.spawn_fact)
-                    if factVal == 0 then
-                        -- Cyberjunkie hasn't spawned yet. Skip entirely.
-                        if _createdMappins[entry.id] then
-                            Automation.RemoveMappin(entry.id)
-                        end
-                        goto continue
-                    end
-                end
+            if IsCollected(entry.id) then goto continue end
 
-                -- Check Distance
-                local dx = playerPos.x - entry.coords.x
-                local dy = playerPos.y - entry.coords.y
-                local dz = playerPos.z - entry.coords.z
-                local distSq = (dx * dx) + (dy * dy) + (dz * dz)
-
-                if distSq < radiusSq then
-                    local entity = ResolveEntity(entry)
-
-                    -- 1. Mappin Logic
-                    if not _createdMappins[entry.id] then
-                        -- Create new mappin (snapped if entity available)
-                        Automation.CreateMappin(entry, entity)
-                    elseif entity and not _mappinSnapped[entry.id] then
-                        -- Upgrade to snapped mappin if entity streamed in
-                        Automation.RemoveMappin(entry.id)
-                        Automation.CreateMappin(entry, entity)
-                    end
-
-                    -- 2. Check Logic (Auto-Resolve)
-                    Automation.CheckProximityTarget(entry, entity, distSq < detectionDistSq)
-                else
-                    -- Cleanup if out of range
-                    if _createdMappins[entry.id] then
-                        Automation.RemoveMappin(entry.id)
-                    end
-                    if _notified_cache[entry.id] then
-                        _notified_cache[entry.id] = nil
-                    end
-                end
-            elseif IsCollected(entry.id) then
-                if _createdMappins[entry.id] then
-                    Automation.RemoveMappin(entry.id)
+            if entry.quest_fact then
+                if qs:GetFactStr(entry.quest_fact) > 0 then
+                    Utils.Log("[KillFacts] Quest fact completed: " .. entry.id)
+                    Core.SetItemStatus(entry.id, true)
+                    count = count + 1
+                    goto continue
                 end
             end
+
+            if entry.kill_fact then
+                if qs:GetFactStr(entry.kill_fact) > 0 then
+                    if entry.conversation_shard then
+                        table.insert(needsShardCheck, entry)
+                    else
+                        Utils.Log("[KillFacts] Cyberjunkie defeated: " .. entry.id)
+                        Core.SetItemStatus(entry.id, true)
+                        count = count + 1
+                    end
+                end
+            end
+
             ::continue::
         end
     end
-end
 
-function Automation.CreateMappin(entry, entity)
-    local mappinData = MappinData.new()
-    mappinData.mappinType = TweakDBID.new('Mappins.DefaultStaticMappin')
-    -- Use TakeDownVariant for Cyberjunkies, ServicePointNetTrainerVariant for caches
-    if string.find(entry.id, "cyberjunkie_", 1, true) then
-        mappinData.variant = gamedataMappinVariant.TakeDownVariant
-    else
-        mappinData.variant = gamedataMappinVariant.ServicePointNetTrainerVariant
-    end
-    mappinData.visibleThroughWalls = true
-
-    local pos = Vector4.new(entry.coords.x, entry.coords.y, entry.coords.z + 1.0, 1.0) -- Lift slightly default
-
-    -- Snap if entity provided
-    if entity then
-        pos = entity:GetWorldPosition()
-        pos.z = pos.z + 0.5 -- slight offset
-        _mappinSnapped[entry.id] = true
-    else
-        _mappinSnapped[entry.id] = false
+    if #needsShardCheck > 0 then
+        count = count + Automation._CheckShardsForEntries(needsShardCheck)
     end
 
-    local id = Game.GetMappinSystem():RegisterMappin(mappinData, pos)
-    _createdMappins[entry.id] = id
-end
-
-function Automation.RemoveMappin(entryID)
-    local id = _createdMappins[entryID]
-    if id then
-        Game.GetMappinSystem():UnregisterMappin(id)
-        _createdMappins[entryID] = nil
-        _mappinSnapped[entryID] = nil
+    if count > 0 then
+        Utils.Log("Retroactively marked " .. count .. " entries via kill facts / shards.")
+    elseif _isDebug then
+        Utils.Log("[KillFacts] Scan complete. No new matches.", Utils.LogLevel.Debug)
     end
 end
 
-function Automation.CheckProximityTarget(entry, entity, isVeryClose)
-    -- NOTIFICATION (First time only)
-    if not _notified_cache[entry.id] then
-        local label = entry.kill_fact and "Cyberjunkie" or "Shard"
-        -- Strip "Cyberjunkie - " prefix to avoid "Cyberjunkie detected: Cyberjunkie - Name"
-        local displayName = string.gsub(entry.name, "^Cyberjunkie %- ", "")
-        Utils.Notify(label .. " detected: " .. displayName)
-        _notified_cache[entry.id] = true
-    end
+-- ### SCAN (overlay open + WhenReady) ###
 
-    -- Cyberjunkies: Skip inventory auto-resolve. Kill facts handle their detection.
-    if entry.kill_fact then
-        return
-    end
-
-    -- AUTO-RESOLVE LOGIC (Container/cache proximity check only — e.g., Stadium Cache)
-    if entity and isVeryClose then
-        local trans = Game.GetTransactionSystem()
-        if trans then
-            local result = HasAnyCWCapacityShard(entity, trans)
-
-            if result == false then
-                -- Verified Loaded AND Empty -> Auto-Collect
-                Automation.SetItemStatus(entry.id, true)
-                Utils.Notify("Verified: Looted. Auto-Collected: " .. entry.name)
-                if _isDebug then
-                    Utils.Log("[Loot] MATCH FOUND (Proximity Resolution): " .. entry.name,
-                        Utils.LogLevel.Debug)
-                end
-                Automation.RemoveMappin(entry.id)
-            elseif result == true then
-                if not _notified_cache[entry.id] then
-                    Utils.Notify("CW Capacity Shard detected: " .. entry.name)
-                    if _isDebug then Utils.Log("[Proximity] Shard Detected: " .. entry.name, Utils.LogLevel.Debug) end
-                    _notified_cache[entry.id] = true
-                end
-            end
-            -- If result is nil (Not Loaded), do nothing. Wait for next tick.
-        end
-    elseif isVeryClose then
-        -- Entity NOT found (despawned/glitched), and we are close.
-        Automation.SetItemStatus(entry.id, true)
-        Utils.Notify("Verified: Entity missing. Auto-Collected: " .. entry.name)
-        if _isDebug then Utils.Log("[Loot] MATCH FOUND (Missing Entity): " .. entry.name, Utils.LogLevel.Debug) end
-        Automation.RemoveMappin(entry.id)
-    end
-end
-
--- Predictive Loot Logic: Resolve closest uncollected item for instant feedback
--- @param maxRadius (number) Maximum distance to search (100m for Autoloot compatibility)
--- @return (table|nil) The closest DB entry object, or nil if none found
-function Automation.ResolveClosestUncollected(maxRadius)
-    local player = Game.GetPlayer()
-    if not player then return nil end
-
-    local playerPos = player:GetWorldPosition()
-    local radius = maxRadius or 100.0
-    local radiusSq = radius * radius
-
-    local closestEntry = nil
-    local closestDistSq = radiusSq -- Initialize with max range
-
-    for _, cat in ipairs(CyberwareCapacityDB) do
-        for _, entry in ipairs(cat.entries) do
-            -- Only check uncollected items with valid coordinates
-            if not IsCollected(entry.id) and entry.coords then
-                local dx = playerPos.x - entry.coords.x
-                local dy = playerPos.y - entry.coords.y
-                local dz = playerPos.z - entry.coords.z
-                local distSq = (dx * dx) + (dy * dy) + (dz * dz)
-
-                -- Find the absolute closest one
-                if distSq < closestDistSq then
-                    closestDistSq = distSq
-                    closestEntry = entry
-                end
-            end
-        end
-    end
-
-    if closestEntry then
-        if _isDebug then
-            Utils.Log("[Predict] Resolved closest item: " .. closestEntry.name .. " (DistSq: " .. closestDistSq .. ")",
-                Utils.LogLevel.Debug)
-        end
-        return closestEntry
-    end
-
-    return nil
-end
-
--- Public Scan Function (Called by Init and UI Open)
 function Automation.Scan()
     Automation.CheckKillFacts()
-    Automation.ProximityScan()
+    Core.Scan()
 end
 
 -- ### INIT ###
 
---- Initialize Automation
--- @param sessionState (table) Player progress state
--- @param callbacks (table) UI callbacks (for onToggle/Save)
--- @param debugMode (boolean) Enable verbose logging
-function Automation.Init(sessionState, callbacks, debugMode, settings)
+function Automation.Init(sessionState, _, debugMode, settings)
     _sessionState = sessionState
-    _callbacks = callbacks
-    _isDebug = debugMode or false
-    _settings = settings
+    _isDebug      = debugMode or false
 
-    Utils.Log("Initializing... (Debug: " .. tostring(_isDebug) .. ")")
+    Core.Init(GetMod("0-Engine"), sessionState, settings, {
+        setName          = "ccsc_items",
+        mappinVariant    = gamedataMappinVariant.ServicePointNetTrainerVariant,
+        getMappinVariant = GetMappinVariant,
+        snapRadius       = 20.0,
+        buildEntries     = BuildEntries,
+        canShow          = CanShow,
+        onItemEnter      = OnItemEnter,
+        -- Inventory check for CW Shard caches only; cyberjunkies use kill_fact detection
+        checkInventory   = function(entry, entity, trans)
+            if entry.kill_fact then return nil end
+            return HasAnyCWCapacityShard(entity, trans)
+        end,
+        isCollected      = IsCollected,
+    }, _isDebug)
 
-    -- Check if we are already done
-    local isComplete, count, total = CheckAllCollected()
-    if isComplete then
-        Utils.Log(string.format("All items collected (%d/%d).", count, total))
-    else
-        Utils.Log(string.format("Automation Init: %d/%d collected.", count, total))
-    end
-
-    Utils.Log("Ready (Event-Driven Mode).")
+    local _, count, total = Core.CheckAllCollected()
+    Utils.Log(string.format("Automation Init: %d/%d collected.", count, total))
 end
 
 return Automation
