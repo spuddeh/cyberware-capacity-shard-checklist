@@ -78,26 +78,27 @@ local function GetMappinVariant(entry)
 end
 
 -- ### CCSC-SPECIFIC: INVENTORY CHECK ###
+-- Only the tracked shard counts — other loot in the container doesn't block auto-collect.
 
-local _cwShardIDs = {
-    "Items.CWCapacityPermaReward_Epic",
-    "Items.CWCapacityPermaReward_Legendary",
-    "Items.CWCapacityPermaReward_Rare",
-    "Items.CWCapacityPermaReward_Uncommon",
-    "Items.CWCapacityPermaReward_2_Epic",
-    "Items.CWCapacityPermaReward_2_Legendary",
-    "Items.CWCapacityPermaReward_2_Rare",
-    "Items.CWCapacityPermaReward_2_Uncommon",
-}
-
-local function HasAnyCWCapacityShard(entity, trans)
-    if not entity or not trans then return nil end
-    local success, _ = trans:GetItemList(entity)
-    if success ~= true then return nil end
-    for _, id in ipairs(_cwShardIDs) do
-        if trans:HasItem(entity, ItemID.new(TweakDBID.new(id))) then return true end
+local _cwShardKeys = nil
+local function CWShardKeys()
+    if not _cwShardKeys then
+        _cwShardKeys = Core.MakeKeyLookup({
+            "Items.CWCapacityPermaReward_Epic",
+            "Items.CWCapacityPermaReward_Legendary",
+            "Items.CWCapacityPermaReward_Rare",
+            "Items.CWCapacityPermaReward_Uncommon",
+            "Items.CWCapacityPermaReward_2_Epic",
+            "Items.CWCapacityPermaReward_2_Legendary",
+            "Items.CWCapacityPermaReward_2_Rare",
+            "Items.CWCapacityPermaReward_2_Uncommon",
+        })
     end
-    return false
+    return _cwShardKeys
+end
+
+local function HasAnyCWCapacityShard(entity)
+    return Core.ContainerContainsAny(entity, CWShardKeys())
 end
 
 -- ### CCSC-SPECIFIC: onItemEnter ###
@@ -228,10 +229,13 @@ function Automation.Init(sessionState, _, debugMode, settings)
         buildEntries     = BuildEntries,
         canShow          = CanShow,
         onItemEnter      = OnItemEnter,
+        onAutoCollect    = function(entry)
+            Core.QueueOrShow("CW Capacity Shard already looted: " .. entry.name)
+        end,
         -- Inventory check for CW Shard caches only; cyberjunkies use kill_fact detection
-        checkInventory   = function(entry, entity, trans)
+        checkInventory   = function(entry, entity)
             if entry.kill_fact then return nil end
-            return HasAnyCWCapacityShard(entity, trans)
+            return HasAnyCWCapacityShard(entity)
         end,
         isCollected      = IsCollected,
     }, _isDebug)

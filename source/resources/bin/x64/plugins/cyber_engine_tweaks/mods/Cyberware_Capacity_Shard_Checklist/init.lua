@@ -7,10 +7,12 @@
 
 local CyberwareCapacityDB = require("db")
 local GameSession         = require("Modules/GameSession")
+local GameUI              = require("Modules/GameUI")
 local ChecklistUI         = require("Modules/ChecklistUI")
 local SettingsUI          = require("Modules/SettingsUI")
 local Automation          = require("Modules/Automation")
 local Utils               = require("Modules/Utils")
+Utils.LogPrefix = IconGlyphs.Chip .. " [CW Capacity Shard Checklist] "
 
 -- ### MOD STATE ###
 
@@ -74,7 +76,7 @@ local uiCallbacks = {
                 local pos = ToVector4 { x = coords.x, y = coords.y, z = coords.z, w = 1 }
                 local rot = ToEulerAngles { roll = 0, pitch = 0, yaw = coords.yaw or 0 }
                 Game.GetTeleportationFacility():Teleport(player, pos, rot)
-                Utils.Log("Teleported to: " .. name)
+                Utils.Log(string.format("Teleported to: %s | clock=%.2f", name, os.clock()), Utils.LogLevel.Debug)
             end
         end
 
@@ -127,6 +129,7 @@ registerForEvent("onInit", function()
     local Mod = Engine.Register("Cyberware_Capacity_Shard_Checklist")
 
     LoadConfig()
+    Utils.SetDebugMode(settings.dev_mode_enabled)
 
     GameSession.StoreInDir('sessions')
     GameSession.Persist(sessionState)
@@ -143,11 +146,31 @@ registerForEvent("onInit", function()
         Automation.SetInCutscene(tier > 1)
     end)
 
-    -- 0-Engine: menu pause/resume
-    Engine.Subscribe("MenuOpen", function()
+    -- GameSession: log every state change so we can see isLoaded + isPaused transitions.
+    -- This reveals the exact loading screen lifecycle vs regular menu pauses.
+    GameSession.On(function(state)
+        Utils.Log(string.format("[CCSC] GameSession | loaded=%s paused=%s | clock=%.2f",
+            tostring(state.isLoaded), tostring(state.isPaused), os.clock()), Utils.LogLevel.Debug)
+    end)
+
+    -- GameUI: replaces GameSession.OnPause/OnResume with faster, more specific events.
+    -- OnLoadingStart fires via LoadingScreenProgressBarController::SetProgress —
+    -- immediately when the loading screen initialises, before the bar moves.
+    -- OnMenuOpen/Close handle vendors, pause menu, and all other menus.
+    GameUI.OnLoadingStart(function()
+        Utils.Log(string.format("[CCSC] GameUI.LoadingStart | clock=%.2f", os.clock()), Utils.LogLevel.Debug)
         Automation.SetMenuPaused(true)
     end)
-    Engine.Subscribe("MenuClose", function()
+    GameUI.OnLoadingFinish(function()
+        Utils.Log(string.format("[CCSC] GameUI.LoadingFinish | clock=%.2f", os.clock()), Utils.LogLevel.Debug)
+        Automation.SetMenuPaused(false)
+    end)
+    GameUI.OnMenuOpen(function()
+        Utils.Log(string.format("[CCSC] GameUI.MenuOpen | clock=%.2f", os.clock()), Utils.LogLevel.Debug)
+        Automation.SetMenuPaused(true)
+    end)
+    GameUI.OnMenuClose(function()
+        Utils.Log(string.format("[CCSC] GameUI.MenuClose | clock=%.2f", os.clock()), Utils.LogLevel.Debug)
         Automation.SetMenuPaused(false)
     end)
 
@@ -183,21 +206,27 @@ registerForEvent("onInit", function()
         end
     end)
 
-    -- v0.18.0+: PlayerInvalidated no longer fires on vendor opens or transient hiccups.
+    -- PlayerInvalidated: resource cleanup only. Still fires on some vendor opens.
     Engine.Subscribe("PlayerInvalidated", function()
-        Utils.Log("Player Invalidated. Stopping mod.")
-        isSessionActive = false
+        Utils.Log(string.format("[CCSC] PlayerInvalidated | clock=%.2f", os.clock()), Utils.LogLevel.Debug)
         Automation.UnregisterItemSet()
     end)
 
+    GameSession.OnEnd(function()
+        Utils.Log(string.format("[CCSC] GameSession.OnEnd | clock=%.2f", os.clock()), Utils.LogLevel.Debug)
+        isSessionActive = false
+    end)
+
     Mod.WhenReady(function(_)
-        Utils.Log("Player Ready. Initializing Automation.")
+        local paused = GameSession.IsPaused()
+        Utils.Log(string.format("[CCSC] WhenReady | IsPaused=%s | clock=%.2f", tostring(paused), os.clock()), Utils.LogLevel.Debug)
         isSessionActive = true
 
         Automation.Init(sessionState, uiCallbacks, settings.dev_mode_enabled, settings)
-        Automation.SetMenuPaused(false)
-        Automation.UpdateState()        -- register SpatialSet
-        Automation.Scan()               -- CheckKillFacts + immediate proximity check
+        Automation.UpdateState()
+        if not paused then
+            Automation.Scan()
+        end
     end, nil, 2)
 
     Utils.Log("Loaded (Wait for Player Ready).")
@@ -227,6 +256,7 @@ end)
 
 local function ToggleDebug()
     settings.dev_mode_enabled = not settings.dev_mode_enabled
+    Utils.SetDebugMode(settings.dev_mode_enabled)
     Automation.Init(sessionState, uiCallbacks, settings.dev_mode_enabled, settings)
     if settings.dev_mode_enabled then
         Utils.Log("Debug Mode ENABLED via Console.")
