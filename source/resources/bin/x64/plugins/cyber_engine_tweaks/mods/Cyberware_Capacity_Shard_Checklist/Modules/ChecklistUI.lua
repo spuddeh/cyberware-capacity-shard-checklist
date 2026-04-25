@@ -1,9 +1,8 @@
 -- ======================================================================================
--- Mod Name: Cyberware Capacity Shard Checklist
+-- ChecklistUI.lua  (canonical: _shared/checklist/)
 -- Author: Spuddeh
--- Description: Shared UI Module for Checklist Mods.
---              Handles drawing the TabBar, List, and Detail views.
--- Mod Version: 1.0.0
+-- Description: Shared ImGui rendering for the Checklist mod family — TabBar, list,
+--              detail view, drawCustomActions callback. Deployed byte-identical to each mod.
 -- ======================================================================================
 
 local ChecklistUI = {}
@@ -56,12 +55,16 @@ end
 -- @param db (table) Database table (list of {category=..., entries={...}})
 -- @param progress (table) Progress table { id = boolean }
 -- @param settings (table) Settings table { lazy_mode = boolean }
+-- @param settings (table) Settings table { lazy_mode = boolean }
 -- @param callbacks (table) Action callbacks { onToggle=fn(id, val), onAction=fn(action, entry) }
 -- @param checklist_mode (string) "manual" or "automatic" (default: "manual" if unspecified)
 function ChecklistUI.Draw(title, open, db, progress, settings, callbacks, checklist_mode)
     if not open then return end
 
-    -- Default mode to manual if not provided
+    -- Default mode to manual if not provided, for backward compatibility with other mods
+    -- unless implied otherwise. But user requested:
+    -- "if automatic, disabled. if manual, enabled."
+    -- Let's assume checklist_mode comes in as string.
     local mode = checklist_mode or "manual"
 
     -- Set default size
@@ -177,6 +180,17 @@ function ChecklistUI.Draw(title, open, db, progress, settings, callbacks, checkl
                         ImGui.BeginChild("DetailBody", 0, body_h, false, ImGuiWindowFlags.AlwaysUseWindowPadding)
                         ImGui.Spacing()
 
+                        -- BaseID
+                        if settings and settings.show_baseid and selected_entry.baseID then
+                            ImGui.PushStyleColor(ImGuiCol.Text, unpack(ChecklistUI.theme.dark_blue))
+                            ImGui.Text("BaseID:")
+                            ImGui.PopStyleColor()
+
+                            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 15)
+                            ImGui.Text(selected_entry.baseID)
+                            ImGui.Spacing()
+                        end
+
                         -- District Info
                         if selected_entry.district or selected_entry.sub_district then
                             local has_district = (selected_entry.district and selected_entry.district ~= "")
@@ -255,6 +269,7 @@ function ChecklistUI.Draw(title, open, db, progress, settings, callbacks, checkl
                             ImGui.Button(IconGlyphs.MapMarker .. " Set Pin")
                             ImGui.EndDisabled()
                             if ImGui.IsItemHovered() then ImGui.SetTooltip("Coordinates TBD") end
+                            if ImGui.IsItemHovered() then ImGui.SetTooltip("Coordinates TBD") end
                         end
 
                         if settings and settings.lazy_mode then
@@ -278,7 +293,7 @@ function ChecklistUI.Draw(title, open, db, progress, settings, callbacks, checkl
                                 if ImGui.IsItemHovered() then ImGui.SetTooltip("Coordinates TBD") end
                             end
 
-                            -- 3) Custom Actions (Red) - Only if callback provided
+                            -- 3) Give Item (Red)
                             if callbacks.drawCustomActions then
                                 ImGui.SameLine()
                                 local c = ChecklistUI.theme.btn_red
