@@ -22,6 +22,8 @@ Automation.RegisterItemSet          = Core.RegisterItemSet
 Automation.UnregisterItemSet        = Core.UnregisterItemSet
 Automation.RemoveMappin             = Core.RemoveMappin
 Automation.ResolveClosestUncollected = Core.ResolveClosestUncollected
+Automation.SetUserPin               = Core.SetUserPin
+Automation.ClearUserPin             = Core.ClearUserPin
 
 -- ### CCSC-SPECIFIC: COLLECTED STATE ###
 
