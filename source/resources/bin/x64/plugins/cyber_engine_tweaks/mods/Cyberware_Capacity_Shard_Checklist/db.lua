@@ -131,7 +131,7 @@ local CyberwareCapacityDB = {
                 quest_fact = nil,
                 spawn_fact = "cbj_ep1_02_active",  -- Quest fact for Cyberjunkie spawn
                 kill_fact = "cbj_ep1_02_finished", -- Quest fact for Cyberjunkie death
-                container_id = nil,                -- 9000965ULL - Character.cbj_ep1_002_cyberjunkie
+                container_id = 9000965ULL,         -- Character.cbj_ep1_002_cyberjunkie (NPC entity: entity-attached mappin; no shard, kill_fact detection)
                 conversation_shard = nil
             },
             {
@@ -147,7 +147,7 @@ local CyberwareCapacityDB = {
                 quest_fact = nil,
                 spawn_fact = "cbj_ep1_05_active",  -- Quest fact for Cyberjunkie spawn
                 kill_fact = "cbj_ep1_05_finished", -- Quest fact for Cyberjunkie death
-                container_id = nil,                -- 9000964ULL - Character.cbj_ep1_005_cyberjunkie
+                container_id = 9000964ULL,         -- Character.cbj_ep1_005_cyberjunkie (NPC entity: entity-attached mappin; no shard, kill_fact detection)
                 conversation_shard = nil
             },
             {
@@ -163,7 +163,7 @@ local CyberwareCapacityDB = {
                 quest_fact = nil,
                 spawn_fact = "cbj_ep1_06_active",  -- Quest fact for Cyberjunkie spawn
                 kill_fact = "cbj_ep1_06_finished", -- Quest fact for Cyberjunkie death
-                container_id = nil,                -- 9000967ULL - Character.cbj_ep1_006_cyberjunkie
+                container_id = 9000967ULL,         -- Character.cbj_ep1_006_cyberjunkie (NPC entity: entity-attached mappin; no shard, kill_fact detection)
                 conversation_shard = nil
             },
             {
@@ -179,7 +179,7 @@ local CyberwareCapacityDB = {
                 quest_fact = nil,
                 spawn_fact = "cbj_ep1_07_active",  -- Quest fact for Cyberjunkie spawn
                 kill_fact = "cbj_ep1_07_finished", -- Quest fact for Cyberjunkie death
-                container_id = nil,                -- 9006664ULL - Character.cbj_ep1_007_cyberjunkie
+                container_id = 9006664ULL,         -- Character.cbj_ep1_007_cyberjunkie (NPC entity: entity-attached mappin; no shard, kill_fact detection)
                 conversation_shard = nil
             },
             {
@@ -195,7 +195,7 @@ local CyberwareCapacityDB = {
                 quest_fact = nil,
                 spawn_fact = "cbj_ep1_09_active", -- Quest fact for Cyberjunkie spawn
                 kill_fact = "cbj_ep1_09_finished",
-                container_id = nil,               -- 9006687ULL - Character.cbj_ep1_009_cyberjunkie
+                container_id = 9006687ULL,         -- Character.cbj_ep1_009_cyberjunkie (NPC entity: entity-attached mappin; no shard, kill_fact detection)
                 conversation_shard = nil
             },
             {
@@ -211,7 +211,7 @@ local CyberwareCapacityDB = {
                 quest_fact = nil,
                 spawn_fact = "cbj_ep1_10_active",  -- Quest fact for Cyberjunkie spawn
                 kill_fact = "cbj_ep1_10_finished", -- Quest fact for Cyberjunkie death
-                container_id = nil,                -- 9006712ULL - Character.cbj_ep1_010_cyberjunkie
+                container_id = 9006712ULL,         -- Character.cbj_ep1_010_cyberjunkie (NPC entity: entity-attached mappin; no shard, kill_fact detection)
                 conversation_shard = nil
             },
         }

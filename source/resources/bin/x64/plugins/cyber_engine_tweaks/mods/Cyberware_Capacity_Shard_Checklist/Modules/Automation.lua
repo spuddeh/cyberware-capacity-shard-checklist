@@ -237,6 +237,11 @@ function Automation.Init(sessionState, _, debugMode, settings)
             if entry.kill_fact then return nil end
             return HasAnyCWCapacityShard(entity)
         end,
+        -- Cyberjunkies are moving NPCs: bind their mappin to the NPC entity so it
+        -- follows them (RegisterMappinWithObject). Caches are static → coords mappin.
+        attachToEntity   = function(entry)
+            return entry.kill_fact ~= nil
+        end,
         isCollected      = IsCollected,
     }, _isDebug)
 
