@@ -7,6 +7,16 @@ This mod adds a simple, in-game UI to track all shards and Cyberjunkies so you n
 
 [line]
 
+[size=5][color=#ffff00][b]New in 2.0.0[/b][/color][/size]
+[color=#e06666][b]0-Engine is a new required dependency.[/b][/color] The mod will not run without it. See [b]Requirements[/b] below.
+[list]
+[*][b]Rebuilt Proximity Scanner:[/b] The scanner now reacts the moment you cross into range instead of polling on a timer. No CPU cost when you are away from a target, and tighter detection up close.
+[*][b]Following Markers:[/b] Cyberjunkie detection markers now follow the NPC instead of sitting on a fixed point.
+[*][b]Removed:[/b] the scanner interval setting. The new system has no polling interval, so it no longer applies.
+[/list]
+
+[line]
+
 [size=5][color=#ffff00][b]Why Only Phantom Liberty?[/b][/color][/size]
 In total, there are [b]74 Cyberware Capacity[/b] worth of shards across the entire game:
 
@@ -22,7 +32,7 @@ In total, there are [b]74 Cyberware Capacity[/b] worth of shards across the enti
 [*][b]Automatic Tracking[/b]: Detects defeated Cyberjunkies using in-game quest facts. Shard Cyberjunkies also verify the shard has been looted before checking off.
 [*][b]In-Game Checklist[/b]: Track your progress on all 12 entries across 2 categories (Cyberware Capacity Shards + Cyberjunkies).
 [*]Progress is saved automatically with your game save (per-character).
-[*]A [b]Settings[/b] tab to configure the Proximity Scanner (Radius, Interval) and optional [b]Lazy Mode[/b].
+[*]A [b]Settings[/b] tab to configure the Proximity Scanner range and optional [b]Lazy Mode[/b].
 [*]In-game descriptions, closest fast travel points, and step-by-step directions for every entry.
 [*][b]Spawn Requirements[/b]: Displays prerequisite conditions for gated Cyberjunkies (e.g., "Defeat any 4 Cyberjunkies").
 [*]A [b]Set Map Pin[/b] button to create a waypoint to the entry's location.
@@ -65,7 +75,7 @@ These Cyberjunkies do [b]not[/b] drop a shard, but are tracked for completion.
 [*]The "Cyberware Capacity Shard Checklist" window will appear.
 [*]Click the checkboxes to mark your progress manually, or let the [b]Automatic Tracking[/b] handle it for you.
 [*][b]Proximity Scanning[/b]: Enable (default) this in the [b]Settings[/b] tab to see nearby Cyberjunkies on your HUD as you play.
-[list][*]You can also adjust how frequently the scan occurs (default 5.0s), as well as the range (default 50m).
+[list][*]You can adjust the detection range in the [b]Settings[/b] tab (default 50m, adjustable from 25m to 100m). The scanner is event driven, so there is no scan interval to configure.
 [/list][/list][*]To save your progress, [b]Quicksave (F5)[/b] or [b]Manual Save[/b] your game. The progress is tied to that save file.
 
 
@@ -78,10 +88,18 @@ For those who just want to get it done, you can enable "Lazy Mode" in the Settin
 
 [line]
 
+[size=5][color=#ffff00][b]Requirements[/b][/color][/size]
+[list]
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url]
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/27967]0-Engine[/url] (pure CET-only build). [color=#e06666][b]New required dependency for 2.0.0.[/b][/color] It has its own requirements, listed on its mod page.
+[/list]
+
+[line]
+
 [size=5][color=#ffff00][b]Installation[/b][/color][/size]
 [list=1]
+[*]Install [url=https://www.nexusmods.com/cyberpunk2077/mods/27967]0-Engine[/url] and its requirements (see [b]Requirements[/b] above).
 [*]Install with a mod manager (recommended).
-[*]Install [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url].
 [*]For manual install, download and extract the main file into your Cyberpunk 2077 game directory.
 [/list]
 
@@ -111,5 +129,11 @@ This mod would not be possible without:
 [list]
 [*][b]yamashi[/b] and the CET team for creating [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url].
 [*][b]psiberx[/b] for their amazing [url=https://github.com/psiberx/cp2077-cet-kit]CET Kit[/url] and especially the 'GameSession.lua' module, which handles all the per-save-file saving.
+[*][b][url=https://www.nexusmods.com/profile/DigitalVixen?gameId=3333]DigitalVixen[/url][/b] for [url=https://www.nexusmods.com/cyberpunk2077/mods/27967]0-Engine[/url], the reactive runtime the proximity scanner is built on.
 [*]The Cyberpunk 2077 Modding community for all the public documentation and guides.
 [/list]
+
+[line]
+
+[size=5][color=#ffff00][b]Disclaimer[/b][/color][/size]
+This mod was developed with the assistance of an LLM. All in-game testing and code validation was performed by a human. No rogue AIs were permitted through the Blackwall.

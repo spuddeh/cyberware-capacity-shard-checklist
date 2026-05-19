@@ -1,20 +1,15 @@
-## Implemented
+## Implemented (v2.0.0)
 
-- [x] Interactive Checklist UI (TabBar, List, Detail views)
-- [x] Session Persistence (per-save progress tracking)
-- [x] Proximity Scanner with Mappins (TakeDown for Cyberjunkies, NetTrainer for caches)
-- [x] Loot Listener (auto-detect CW Capacity Shards via inventory observer)
-- [x] Predictive Loot Resolution (closest uncollected shard)
-- [x] NPC Body Auto-Resolve (container-style check for caches)
-- [x] Map Pin support with coordinates for all entries
-- [x] Lazy Mode (Teleport)
-- [x] Settings UI (Automation toggle, scan interval/radius)
-- [x] Manual checklist mode (checkboxes enabled)
-- [x] Cyberjunkie tracking (6 CW-shard + 6 non-shard Cyberjunkies)
-- [x] Kill Fact detection (primary method for Cyberjunkie defeat tracking)
-- [x] Conversation Shard detection (secondary confirmation for CW shard Cyberjunkies)
-- [x] Spawn Fact gating (prevents detection of unspawned Cyberjunkies)
-- [x] Retroactive kill fact + shard scan on session start
-- [x] Quest prerequisite display (requirement field for gated Cyberjunkies)
+- [x] In-game checklist tracking all 12 entries across 2 categories (6 Cyberware Capacity Shards + 6 shardless Cyberjunkies).
+- [x] 0-Engine proximity scanner: event-driven (no polling interval), notifies within `scanner_radius` (default 50m, adjustable 25-100m). No CPU cost when away.
+- [x] Kill-fact detection of defeated Cyberjunkies; shard Cyberjunkies additionally verify the looted shard before checking off.
+- [x] Spawn-fact gating + prerequisite display for gated Cyberjunkies (e.g. "Defeat any 4 Cyberjunkies").
+- [x] CW Capacity Shard loot detection via inventory observer + closest-uncollected resolve.
+- [x] NPC-following detection markers for Cyberjunkies (static marker for the Stadium cache).
+- [x] Smart Pause: scanner suppressed during loading screens, fast travel, and menus.
+- [x] Survives saves/autosaves (no PlayerInvalidated teardown).
+- [x] Set Pin waypoint (standalone manual map waypoint, decoupled from Core).
+- [x] Teleport to any uncollected entry (Lazy Mode); Unstuck.
+- [x] Per-character save persistence.
 
 ## Planned

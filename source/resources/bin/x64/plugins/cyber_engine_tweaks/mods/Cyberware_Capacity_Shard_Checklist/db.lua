@@ -2,7 +2,7 @@
 -- Mod Name: Cyberware Capacity Shard Checklist
 -- Author: Spuddeh
 -- Description: Database of Cyberware Capacity Shard locations and Cyberjunkie NPCs.
--- Mod Version: 1.0.0
+-- Mod Version: 2.0.0
 -- ======================================================================================
 
 local CyberwareCapacityDB = {

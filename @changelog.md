@@ -1,3 +1,14 @@
+### [2026-05-19] v2.0.0 — 0-Engine migration
+
+- **[Major] Proximity backend migrated from Cron polling to 0-Engine reactive primitives** (SpatialSet + per-entry detection zones). Removed `Cron.lua`, the polling loop, and the `scanner_interval` config. `init.lua` rewritten: `GetMod` inside `onInit`, `Mod.WhenReady` priority 2, `GameSession.OnEnd` for `isSessionActive` gating. `Automation.lua` is a thin wrapper over the shared `ChecklistCore` (byte-identical across all 4 mods).
+- **[New] Required dependency**: 0-Engine (Nexus 27967, pure CET-only build, 1.18.2+). 0-Engine itself requires CET 1.32+, Codeware 1.12+, redscript 0.5.19+.
+- **[New] NPC-following detection mappins for Cyberjunkies.** Cyberjunkie entries use the Core `attachToEntity` config: the detection mappin is registered against the resolved NPC entity (`RegisterMappinWithObject`) and re-attaches on the snap-zone `onTick` so it tracks the moving target instead of a static point. Cache entries (Stadium Parking) keep the static `SetMappinPosition` path. (Wiki: `concepts/0-engine-integration-pattern`.)
+- **[Change] All 6 category-2 Cyberjunkie `container_id`s populated in `db.lua`.** Previously `nil` (they drop no shard); set anyway so entity-attach detection resolves the NPC body for every Cyberjunkie. Confirmed safe in-game (no false collects).
+- **[Change] No `PlayerInvalidated` teardown subscriber.** 0-Engine's `Reset()` does not unregister sets/zones; subscribing a teardown there converts a transient false-invalidation into permanent breakage. Registrations persist; 0-Engine auto-resumes on Lifecycle recovery. This also fixed the Stadium-cache post-teleport false-collect. (Wiki: `learnings/0-engine-playerinvalidated-no-teardown`.)
+- **[Change] "Set Pin" decoupled** into a standalone `init.lua` manual waypoint, independent of Core. Net user-facing behaviour unchanged. (Wiki: `decisions/user-pin-decoupled-from-core`.)
+- **[New] `GameUI.lua`** (psiberx CET Kit) added for fast loading-screen detection.
+- **[Note] Versioning.** The public Nexus 1.0.0 already shipped all 12 entries, Cyberjunkie tracking, kill-fact detection, and spawn-requirement gating. The internal v1.1.0 (Cyberjunkie Expansion) and v1.2.0 (Kill Fact Automation Refactor) entries below were local dev iteration labels bundled into that same public 1.0.0; they were never separate Nexus uploads. The only user-facing deltas in public 2.0.0 are the 0-Engine items above (new dependency, rebuilt scanner, NPC-following markers, removed scanner interval).
+
 ### [2026-02-25] v1.2.0 Kill Fact Automation Refactor
 
 - **[CCSC] Automation.lua v1.2.0**:

@@ -2,7 +2,7 @@
 -- Mod Name: Cyberware Capacity Shard Checklist
 -- Author: Spuddeh
 -- Description: Main entry point and initialization logic.
--- Mod Version: 1.1.0
+-- Mod Version: 2.0.0
 -- ======================================================================================
 
 local CyberwareCapacityDB = require("db")

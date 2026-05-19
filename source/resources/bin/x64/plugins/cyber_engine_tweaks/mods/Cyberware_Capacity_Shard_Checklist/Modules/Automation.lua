@@ -2,7 +2,7 @@
 -- Mod Name: Cyberware Capacity Shard Checklist
 -- Author: Spuddeh
 -- Description: CCSC-specific automation logic. Delegates shared behaviour to ChecklistCore.
--- Mod Version: 1.1.0
+-- Mod Version: 2.0.0
 -- ======================================================================================
 
 local Automation        = {}
