@@ -35,6 +35,10 @@ Phantom Liberty hides 6 Cyberware Capacity Shards across Dogtown (dropped by spe
 
 * The **Stadium Parking Cache** is inside a van during the "Dog Eat Dog" mission and cannot be accessed afterwards. If you miss it, use Lazy Mode. You cannot open the van doors, but you can interact with the container by aiming at the door handle in the right spot.
 
+## 📜 License
+
+Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, modify, and share this mod and its source for any **noncommercial** purpose, as long as you credit the original creator. Commercial use, including paid mods or selling, is not permitted. This mirrors the [mod's Nexus permissions](https://www.nexusmods.com/cyberpunk2077/mods/27806).
+
 ## 🤖 Disclaimer
 
 This mod was developed with the assistance of an LLM. All in-game testing and code validation was performed by a human. No rogue AIs were permitted through the Blackwall.
