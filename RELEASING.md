@@ -32,7 +32,7 @@ so `bin/...` lands at the zip root exactly as the game expects.
    ```pwsh
    gh release create ccsc-v2.0.0 --title "Cyberware Capacity Shard Checklist v2.0.0" --notes "..."
    ```
-   The **release body becomes the Nexus file description**, so write the changelog there.
+   The release body is the GitHub release notes (write the full changelog here; also paste it into the Nexus Changelogs tab manually). For the **Nexus file description** (capped at 255 chars), put a `<!-- nexus-description-end -->` marker on its own line: everything **before** it becomes the file description (for example a new requirement, or "delete the old folder first"). Omit the marker, or leave nothing before it, to send no file description.
 3. On publish, the workflow:
    - parses the tag -> looks up the artifact in the manifest,
    - stages `contentDir` -> `installDir` and zips it as `<fileBaseName>_v<version>.zip` (e.g. `Cyberware_Capacity_Shard_Checklist_v2.0.0.zip`),
