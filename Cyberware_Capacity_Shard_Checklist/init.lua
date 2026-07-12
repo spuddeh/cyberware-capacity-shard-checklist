@@ -160,8 +160,8 @@ registerForEvent("onInit", function()
         Automation.SetInCutscene(tier > 1)
     end)
 
-    -- GameSession: log every state change so we can see isLoaded + isPaused transitions.
-    -- This reveals the exact loading screen lifecycle vs regular menu pauses.
+    -- GameSession: debug-only. Logs isLoaded / isPaused transitions, which distinguish a
+    -- loading screen from an ordinary menu pause.
     GameSession.On(function(state)
         Utils.Log(string.format("[CCSC] GameSession | loaded=%s paused=%s | clock=%.2f",
             tostring(state.isLoaded), tostring(state.isPaused), os.clock()), Utils.LogLevel.Debug)
